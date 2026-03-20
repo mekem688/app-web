@@ -5,47 +5,43 @@ import path from "path";
 import runtimeErrorOverlay from "@replit/vite-plugin-runtime-error-modal";
 import { metaImagesPlugin } from "./vite-plugin-meta-images";
 
-export default defineConfig({
-  plugins: [
-    react(),
-    runtimeErrorOverlay(),
-    tailwindcss(),
-    metaImagesPlugin(),
-    ...(process.env.NODE_ENV !== "production" &&
-    process.env.REPL_ID !== undefined
-      ? [
-          await import("@replit/vite-plugin-cartographer").then((m) =>
-            m.cartographer(),
-          ),
-          await import("@replit/vite-plugin-dev-banner").then((m) =>
-            m.devBanner(),
-          ),
-        ]
-      : []),
-  ],
-  resolve: {
-    alias: {
-      "@": path.resolve(import.meta.dirname, "client", "src"),
-      "@shared": path.resolve(import.meta.dirname, "shared"),
-      "@assets": path.resolve(import.meta.dirname, "attached_assets"),
+// Utilisation de __dirname pour la compatibilité Node standard
+const projectRoot = process.cwd();
+
+export default defineConfig(async () => {
+  // Préparation des plugins conditionnels pour Replit
+  const replitPlugins = [];
+  if (process.env.NODE_ENV !== "production" && process.env.REPL_ID !== undefined) {
+    const { cartographer } = await import("@replit/vite-plugin-cartographer");
+    const { devBanner } = await import("@replit/vite-plugin-dev-banner");
+    replitPlugins.push(cartographer(), devBanner());
+  }
+
+  return {
+    plugins: [
+      react(),
+      runtimeErrorOverlay(),
+      tailwindcss(),
+      metaImagesPlugin(),
+      ...replitPlugins,
+    ],
+    resolve: {
+      alias: {
+        "@": path.resolve(projectRoot, "client", "src"),
+        "@shared": path.resolve(projectRoot, "shared"),
+        "@assets": path.resolve(projectRoot, "attached_assets"),
+      },
     },
-  },
-  css: {
-    postcss: {
-      plugins: [],
+    root: path.resolve(projectRoot, "client"),
+    build: {
+      // Vercel cherchera les fichiers ici
+      outDir: path.resolve(projectRoot, "dist/public"),
+      emptyOutDir: true,
+      reportCompressedSize: false,
     },
-  },
-  root: path.resolve(import.meta.dirname, "client"),
-  build: {
-    outDir: path.resolve(import.meta.dirname, "dist/public"),
-    emptyOutDir: true,
-  },
-  server: {
-    host: "0.0.0.0",
-    allowedHosts: true,
-    fs: {
-      strict: true,
-      deny: ["**/.*"],
+    server: {
+      host: "0.0.0.0",
+      allowedHosts: true,
     },
-  },
+  };
 });
